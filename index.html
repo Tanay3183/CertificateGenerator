@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Generator</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Certificate Details</h1>
+        <form id="certificateForm">
+            <div class="form-group">
+                <label for="studentName">Student Name:</label>
+                <input type="text" id="studentName" placeholder="e.g., John Doe" required>
+            </div>
+
+            <div class="form-group">
+                <label for="instituteName">Current Institute Name:</label>
+                <input type="text" id="instituteName" placeholder="e.g., Springfield University" required>
+            </div>
+            <div class="form-group">
+                <label for="instituteCourse">Course Pursuing at Institute:</label>
+                <input type="text" id="instituteCourse" placeholder="e.g., B.Tech Computer Science" required>
+            </div>
+
+            <div class="form-group info-box">
+                <label for="websiteCourse">Course Completed (on our platform):</label>
+                <input type="text" id="websiteCourse" value="Advanced Leadership and Management Skills Workshop" required>
+                 <small>Edit this if the course name is different.</small>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                     <label for="completionDate">Completion Date:</label>
+                     <input type="date" id="completionDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="managerName">Manager/Signatory Name:</label>
+                    <input type="text" id="managerName" value="Nick Sherlock" required>
+                </div>
+            </div>
+            
+            <button type="submit" id="generateBtn">Generate Certificate PDF</button>
+        </form>
+    </div>
+
+    <img src="template.png" id="certTemplateImg" style="display: none;" alt="template header">
+
+    <script src="script.js"></script>
+</body>
+</html>
