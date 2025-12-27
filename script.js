@@ -1,85 +1,126 @@
-// Wait for the DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('certificateForm');
+    
+    // We need the image loaded in the HTML before we can put it on the PDF
     const templateImg = document.getElementById('certTemplateImg');
 
-    form.addEventListener('submit', function(e) {
-        e.preventDefault(); // Prevent actual form submission action
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const submitBtn = document.getElementById('generateBtn');
+        const originalBtnText = submitBtn.innerText;
+        
+        // 1. Change button text to show loading state
+        submitBtn.innerText = "Consulting AI & Generating...";
+        submitBtn.disabled = true;
+        submitBtn.style.backgroundColor = "#5f6368"; // Optional: grey out button
 
-        generatePDF(templateImg);
+        try {
+            // 2. Get user inputs from the HTML form
+            const details = {
+                name: document.getElementById('studentName').value,
+                instName: document.getElementById('instituteName').value,
+                instCourse: document.getElementById('instituteCourse').value,
+                webCourse: document.getElementById('websiteCourse').value,
+                manager: document.getElementById('managerName').value,
+                date: document.getElementById('completionDate').value
+            };
+
+            // 3. Ask your Netlify Backend for the AI text
+            const aiText = await fetchAIParagraph(details);
+
+            // 4. Generate the PDF with the AI text
+            generatePDF(templateImg, details, aiText);
+
+        } catch (error) {
+            console.error("Error:", error);
+            alert("Error: Could not generate certificate. Make sure your backend is running.");
+        } finally {
+            // Reset button to original state
+            submitBtn.innerText = originalBtnText;
+            submitBtn.disabled = false;
+            submitBtn.style.backgroundColor = "#242a45"; 
+        }
     });
 });
 
-function generatePDF(imgElement) {
-    // Access jsPDF from the window object (loaded via CDN)
-    const { jsPDF } = window.jspdf;
+// --- Function to Call YOUR Netlify Backend ---
+async function fetchAIParagraph(data) {
+    // This points to the file you created in /netlify/functions/generate-text.js
+    const url = '/.netlify/functions/generate-text';
 
-    // 1. Initialize jsPDF
-    // 'l' = landscape, 'pt' = points (easier for precise placement), 'a4' page size
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+        throw new Error(`Backend failed with status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.text;
+}
+
+// --- Function to Generate PDF ---
+function generatePDF(imgElement, data, bodyText) {
+    // Access jsPDF from the window object
+    const { jsPDF } = window.jspdf;
+    
+    // Create PDF: landscape, points unit, A4 size
     const doc = new jsPDF('l', 'pt', 'a4');
 
-    // Get A4 dimensions in points (landscape)
-    const pageWidth = doc.internal.pageSize.getWidth(); // approx 841.89 pt
-    const pageHeight = doc.internal.pageSize.getHeight(); // approx 595.28 pt
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    // 2. Add the background image template
-    // We draw the image to fill the entire PDF page
+    // Draw the background template image
+    // Note: ensure template.png is in the same folder and loaded in the HTML <img> tag
     doc.addImage(imgElement, 'PNG', 0, 0, pageWidth, pageHeight);
 
+    // Define styling colors
+    const darkBlue = '#242a45';
+    const bodyGray = '#5f6368';
 
-    // 3. Retrieve user inputs from the form
-    const studentName = document.getElementById('studentName').value;
-    const instituteName = document.getElementById('instituteName').value;
-    const instituteCourse = document.getElementById('instituteCourse').value;
-    const websiteCourse = document.getElementById('websiteCourse').value;
-    const managerName = document.getElementById('managerName').value;
+    // --- 1. Student Name (Large, Centered) ---
+    doc.setFontSize(42);
+    doc.setTextColor(darkBlue);
+    doc.setFont("helvetica", "bold");
+    doc.text(data.name.toUpperCase(), pageWidth / 2, 320, { align: 'center' });
+
+    // --- 2. AI Generated Body Paragraph ---
+    doc.setFontSize(12);
+    doc.setTextColor(bodyGray);
+    doc.setFont("helvetica", "normal");
     
-    // Format the date (e.g., December 27, 2050)
-    const dateInput = document.getElementById('completionDate').value;
-    const dateObj = new Date(dateInput);
+    // Clean text: remove accidental newlines from AI
+    const cleanText = bodyText.replace(/\n/g, " ").trim();
+
+    // Wrap text so it doesn't go off the page (width limited to 600pts)
+    const splitText = doc.splitTextToSize(cleanText, 600);
+    
+    doc.text(splitText, pageWidth / 2, 380, { align: 'center', lineHeightFactor: 1.5 });
+
+    // --- 3. Manager Name & Date ---
+    // Format date nicely (e.g., December 27, 2025)
+    const dateObj = new Date(data.date);
     const formattedDate = dateObj.toLocaleDateString('en-US', { 
         year: 'numeric', month: 'long', day: 'numeric' 
     });
 
-    // Define colors based on template image
-    const darkBlue = '#242a45';
-    const bodyGray = '#5f6368';
-
-
-    // --- ADDING TEXT TO PDF ---
-
-    // A. Student Name (Large, Centered)
-    doc.setFontSize(42);
-    doc.setTextColor(darkBlue);
-    // Set font to bold (standard helvetica bold)
-    doc.setFont("helvetica", "bold");
-    // Using align: 'center' makes the X coordinate the center point
-    doc.text(studentName.toUpperCase(), pageWidth / 2, 320, { align: 'center' });
-
-
-    // B. Body Paragraph
-    doc.setFontSize(12);
-    doc.setTextColor(bodyGray);
-    doc.setFont("helvetica", "normal");
-
-    // Construct the detailed body text string based on inputs
-    const bodyText = `This Training Completion Certificate is presented to ${studentName}, currently pursuing ${instituteCourse} at ${instituteName}, for successfully completing the ${websiteCourse} on our educational platform, demonstrating a strong commitment to professional growth and development.`;
-    
-    // maxWidth ensures the text wraps automatically within a defined width (e.g., 600pt)
-    doc.text(bodyText, pageWidth / 2, 380, { align: 'center', maxWidth: 600, lineHeightFactor: 1.5 });
-
-
-    // C. Manager Name (Bottom Left)
     doc.setFontSize(14);
     doc.setTextColor(darkBlue);
     doc.setFont("helvetica", "bold");
-    doc.text(managerName, 180, 495, { align: 'center' });
-
-    // D. Date (Bottom Right)
+    
+    // Manager Name (Left side)
+    doc.text(data.manager, 180, 495, { align: 'center' });
+    
+    // Date (Right side)
     doc.text(formattedDate, pageWidth - 180, 495, { align: 'center' });
 
-    // 4. Save the generated PDF
-    // Create a filename based on the student's name
-    const safeFilename = studentName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    // --- 4. Save/Download ---
+    const safeFilename = data.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     doc.save(`Certificate_${safeFilename}.pdf`);
 }
