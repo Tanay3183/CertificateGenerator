@@ -44,25 +44,40 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// --- Function to Call YOUR Netlify Backend ---
+// --- Debugging Version of fetchAIParagraph ---
 async function fetchAIParagraph(data) {
-    // This points to the file you created in /netlify/functions/generate-text.js
     const url = '/.netlify/functions/generate-text';
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    });
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
 
-    if (!response.ok) {
-        throw new Error(`Backend failed with status: ${response.status}`);
+        // If the server failed (e.g., 500 error), get the text reason why
+        if (!response.ok) {
+            const errorText = await response.text(); 
+            alert("Server Error Details:\n" + errorText); // <--- This will pop up on your screen
+            throw new Error(errorText);
+        }
+
+        const result = await response.json();
+        
+        // Check if the text actually exists
+        if (!result.text) {
+            alert("Google AI replied, but with no text. Check API Key quotas.");
+            return "Certificate of completion.";
+        }
+
+        return result.text;
+
+    } catch (e) {
+        console.error("Full Error:", e);
+        // Don't just return fallback, alert the user so we know!
+        alert("Connection Failed: " + e.message);
+        return "Certificate of completion.";
     }
-
-    const result = await response.json();
-    return result.text;
 }
 
 // --- Function to Generate PDF ---

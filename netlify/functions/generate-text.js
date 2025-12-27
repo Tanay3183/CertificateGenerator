@@ -1,6 +1,6 @@
 // netlify/functions/generate-text.js
 
-export const handler = async (event, context) => {
+exports.handler = async (event, context) => {
   // Only allow POST requests
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
