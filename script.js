@@ -1,131 +1,85 @@
+// Wait for the DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('certificateForm');
-    
-    // We need the image loaded before we can use it
     const templateImg = document.getElementById('certTemplateImg');
 
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const submitBtn = document.getElementById('generateBtn');
-        const originalBtnText = submitBtn.innerText;
-        
-        // 1. Change button text to show loading state
-        submitBtn.innerText = "Consulting AI & Generating...";
-        submitBtn.disabled = true;
+    form.addEventListener('submit', function(e) {
+        e.preventDefault(); // Prevent actual form submission action
 
-        try {
-            // 2. Get user inputs
-            const details = {
-                name: document.getElementById('studentName').value,
-                instName: document.getElementById('instituteName').value,
-                instCourse: document.getElementById('instituteCourse').value,
-                webCourse: document.getElementById('websiteCourse').value,
-                manager: document.getElementById('managerName').value,
-                date: document.getElementById('completionDate').value
-            };
-
-            // 3. Ask AI for the paragraph
-            const aiText = await fetchAIParagraph(details);
-
-            // 4. Generate the PDF with the AI text
-            generatePDF(templateImg, details, aiText);
-
-        } catch (error) {
-            console.error("Error:", error);
-            alert("Something went wrong with the AI generation. Please try again.");
-        } finally {
-            // Reset button
-            submitBtn.innerText = originalBtnText;
-            submitBtn.disabled = false;
-        }
+        generatePDF(templateImg);
     });
 });
 
-// --- Function to Call Google Gemini API ---
-async function fetchAIParagraph(data) {
-    const apiKey = "AIzaSyCIEyA-59xci_EQOfOoBx7L7lFTRnpnWDg"; // <--- PASTE YOUR KEY HERE
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-    // Prompt engineering: We tell the AI exactly what we want
-    const prompt = `
-        Write a formal, professional, and unique single-paragraph certificate recognition statement (approx 30-40 words) for a student named "${data.name}".
-        They are currently studying "${data.instCourse}" at "${data.instName}".
-        They have successfully completed the course "${data.webCourse}" on our platform.
-        Do not start with "This certifies that". Make it sound appreciative of their specific background. 
-        Only return the paragraph text, nothing else.
-    `;
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            contents: [{
-                parts: [{ text: prompt }]
-            }]
-        })
-    });
-
-    const result = await response.json();
-    
-    // Extract the text from Gemini's response structure
-    try {
-        return result.candidates[0].content.parts[0].text;
-    } catch (e) {
-        console.error("AI Parse Error", result);
-        return "This certificate is awarded for the successful completion of the training, demonstrating high proficiency and dedication."; // Fallback text
-    }
-}
-
-// --- Function to Generate PDF ---
-function generatePDF(imgElement, data, bodyText) {
+function generatePDF(imgElement) {
+    // Access jsPDF from the window object (loaded via CDN)
     const { jsPDF } = window.jspdf;
+
+    // 1. Initialize jsPDF
+    // 'l' = landscape, 'pt' = points (easier for precise placement), 'a4' page size
     const doc = new jsPDF('l', 'pt', 'a4');
 
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
+    // Get A4 dimensions in points (landscape)
+    const pageWidth = doc.internal.pageSize.getWidth(); // approx 841.89 pt
+    const pageHeight = doc.internal.pageSize.getHeight(); // approx 595.28 pt
 
-    // Draw background
+    // 2. Add the background image template
+    // We draw the image to fill the entire PDF page
     doc.addImage(imgElement, 'PNG', 0, 0, pageWidth, pageHeight);
 
-    const darkBlue = '#242a45';
-    const bodyGray = '#5f6368';
 
-    // 1. Student Name
-    doc.setFontSize(42);
-    doc.setTextColor(darkBlue);
-    doc.setFont("helvetica", "bold");
-    doc.text(data.name.toUpperCase(), pageWidth / 2, 320, { align: 'center' });
-
-    // 2. AI Generated Body Paragraph
-    doc.setFontSize(12);
-    doc.setTextColor(bodyGray);
-    doc.setFont("helvetica", "normal");
+    // 3. Retrieve user inputs from the form
+    const studentName = document.getElementById('studentName').value;
+    const instituteName = document.getElementById('instituteName').value;
+    const instituteCourse = document.getElementById('instituteCourse').value;
+    const websiteCourse = document.getElementById('websiteCourse').value;
+    const managerName = document.getElementById('managerName').value;
     
-    // We clean the text (remove newlines if AI added them)
-    const cleanText = bodyText.replace(/\n/g, " ").trim();
-
-    // doc.splitTextToSize breaks the long AI string into multiple lines so it fits
-    // 600 is the width in points allowed for the text block
-    const splitText = doc.splitTextToSize(cleanText, 600);
-    
-    doc.text(splitText, pageWidth / 2, 380, { align: 'center', lineHeightFactor: 1.5 });
-
-    // 3. Manager & Date
-    const dateObj = new Date(data.date);
+    // Format the date (e.g., December 27, 2050)
+    const dateInput = document.getElementById('completionDate').value;
+    const dateObj = new Date(dateInput);
     const formattedDate = dateObj.toLocaleDateString('en-US', { 
         year: 'numeric', month: 'long', day: 'numeric' 
     });
 
+    // Define colors based on template image
+    const darkBlue = '#242a45';
+    const bodyGray = '#5f6368';
+
+
+    // --- ADDING TEXT TO PDF ---
+
+    // A. Student Name (Large, Centered)
+    doc.setFontSize(42);
+    doc.setTextColor(darkBlue);
+    // Set font to bold (standard helvetica bold)
+    doc.setFont("helvetica", "bold");
+    // Using align: 'center' makes the X coordinate the center point
+    doc.text(studentName.toUpperCase(), pageWidth / 2, 320, { align: 'center' });
+
+
+    // B. Body Paragraph
+    doc.setFontSize(12);
+    doc.setTextColor(bodyGray);
+    doc.setFont("helvetica", "normal");
+
+    // Construct the detailed body text string based on inputs
+    const bodyText = `This Training Completion Certificate is presented to ${studentName}, currently pursuing ${instituteCourse} at ${instituteName}, for successfully completing the ${websiteCourse} on our educational platform, demonstrating a strong commitment to professional growth and development.`;
+    
+    // maxWidth ensures the text wraps automatically within a defined width (e.g., 600pt)
+    doc.text(bodyText, pageWidth / 2, 380, { align: 'center', maxWidth: 600, lineHeightFactor: 1.5 });
+
+
+    // C. Manager Name (Bottom Left)
     doc.setFontSize(14);
     doc.setTextColor(darkBlue);
     doc.setFont("helvetica", "bold");
-    doc.text(data.manager, 180, 495, { align: 'center' });
+    doc.text(managerName, 180, 495, { align: 'center' });
+
+    // D. Date (Bottom Right)
     doc.text(formattedDate, pageWidth - 180, 495, { align: 'center' });
 
-    // Save
-    const safeFilename = data.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    // 4. Save the generated PDF
+    // Create a filename based on the student's name
+    const safeFilename = studentName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     doc.save(`Certificate_${safeFilename}.pdf`);
 }
